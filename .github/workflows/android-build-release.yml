@@ -1,0 +1,134 @@
+name: Android Build & Release
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    tags:
+      - "v*"
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: "Publish a GitHub Release"
+        required: false
+        type: boolean
+        default: true
+      release_tag:
+        description: "Custom Release Tag (leave empty for automatic versioning)"
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Debug APK & Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Prepare Keystore and Environment
+        run: |
+          # Ensure .env exists from .env.example if not present
+          if [ ! -f ".env" ] && [ -f ".env.example" ]; then
+            cp .env.example .env
+            echo "Copied .env.example to .env"
+          elif [ ! -f ".env" ]; then
+            touch .env
+            echo "Created empty .env file"
+          fi
+
+          # Decode debug.keystore from base64 if present and needed
+          if [ -f "debug.keystore.base64" ] && [ ! -f "debug.keystore" ]; then
+            base64 -d debug.keystore.base64 > debug.keystore
+            echo "Decoded debug.keystore from debug.keystore.base64"
+          fi
+
+      - name: Build Debug APK
+        run: |
+          gradle :app:assembleDebug --stacktrace
+
+      - name: Prepare APK Artifacts
+        id: apk_prep
+        run: |
+          mkdir -p release-artifacts
+          APK_PATH=$(find app/build/outputs/apk/debug/ -name "*.apk" | head -n 1)
+          if [ -f "$APK_PATH" ]; then
+            echo "Found APK at: $APK_PATH"
+            cp "$APK_PATH" release-artifacts/SentinelAI-debug.apk
+            cp "$APK_PATH" release-artifacts/app-debug.apk
+            echo "apk_path=release-artifacts/SentinelAI-debug.apk" >> $GITHUB_OUTPUT
+          else
+            echo "Error: APK not found in app/build/outputs/apk/debug/"
+            exit 1
+          fi
+
+      - name: Upload Debug APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SentinelAI-debug-apk
+          path: release-artifacts/*.apk
+          retention-days: 30
+
+      - name: Determine Release Tag
+        id: release_info
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'true') || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'))
+        run: |
+          if [ "${{ startsWith(github.ref, 'refs/tags/v') }}" = "true" ]; then
+            TAG_NAME="${GITHUB_REF#refs/tags/}"
+          elif [ -n "${{ github.event.inputs.release_tag }}" ]; then
+            TAG_NAME="${{ github.event.inputs.release_tag }}"
+          else
+            TAG_NAME="v1.0.${{ github.run_number }}"
+          fi
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'true') || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'))
+        with:
+          tag_name: ${{ steps.release_info.outputs.tag_name }}
+          name: "Sentinel AI Release ${{ steps.release_info.outputs.tag_name }}"
+          body: |
+            ### Sentinel AI - Women Safety & Emergency SOS Assistant
+            
+            **Automated Build Artifacts:**
+            - Debug APK: `SentinelAI-debug.apk`
+            - Build Run: #${{ github.run_number }}
+            - Commit: ${{ github.sha }}
+
+            #### Key Features Included:
+            - AI Escape Route Intelligence & Threat Assessment
+            - 24/7 Smart Shield with Violent Shake & Scream Voice Emergency Detectors
+            - Tactile Master SOS Trigger & Loud Siren
+            - Offline Emergency SMS Dispatch to Guardians
+            - Tamil Nadu AWPS Police Stations Directory & Helplines
+            - Audio Evidence Capture & Secure Storage
+          draft: false
+          prerelease: false
+          files: |
+            release-artifacts/SentinelAI-debug.apk
+            release-artifacts/app-debug.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
