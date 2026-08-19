@@ -1,10 +1,10 @@
 name: Build Debug APK
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   build:
@@ -12,7 +12,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout
         uses: actions/checkout@v6
 
@@ -22,49 +21,28 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Gradle
+      - name: Setup Gradle 9.3.1
         uses: gradle/actions/setup-gradle@v6
         with:
+          gradle-version: '9.3.1'
           validate-wrappers: false
 
-      - name: Check project
+      - name: Check Gradle
         run: |
-          echo "Current directory:"
-          pwd
-          echo "Project files:"
-          ls -la
-
-      - name: Find Gradle wrapper
-        run: |
-          find . -name gradlew -type f
-          find . -name gradle-wrapper.jar -type f
-
-      - name: Make Gradle executable
-        run: |
-          chmod +x gradlew 2>/dev/null || true
-          chmod +x android/gradlew 2>/dev/null || true
+          gradle --version
 
       - name: Build Debug APK
         run: |
-          if [ -f "./gradlew" ]; then
-            ./gradlew assembleDebug --stacktrace
-          elif [ -f "./android/gradlew" ]; then
-            cd android
-            ./gradlew assembleDebug --stacktrace
-          else
-            echo "ERROR: gradlew was not found"
-            exit 1
-          fi
+          gradle assembleDebug --stacktrace
 
       - name: Find APK
         run: |
-          echo "APK files:"
+          echo "Searching for APK..."
           find . -type f -name "*.apk"
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: Sentinel-AI-debug
-          path: |
-            **/build/outputs/apk/debug/*.apk
+          name: Sentinel-AI-Debug-APK
+          path: "**/build/outputs/apk/debug/*.apk"
           if-no-files-found: error
