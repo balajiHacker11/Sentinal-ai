@@ -1,5 +1,7 @@
 name: Build and Release Debug APK
-
+uses: gradle/actions/setup-gradle@v4
+with:
+  validate-wrappers: false
 on:
   push:
     branches:
