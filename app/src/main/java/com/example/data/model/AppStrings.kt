@@ -129,6 +129,21 @@ object AppStrings {
         val shakeMaximumLevelText: String
         val shakeHighLevelText: String
 
+        // Power Button Double-Tap Emergency Guard
+        val powerButtonTitle: String
+        val powerButtonSubtitle: String
+        val powerButtonActiveStatus: String
+        val powerButtonInactiveStatus: String
+        val powerButtonInstruction: String
+        val powerButtonTestBtn: String
+        val powerButtonDialogTitle: String
+        val powerButtonDialogMessage: String
+        val powerButtonAutoCalling: String
+        val powerButtonBuzzerActive: String
+        val powerButtonVoiceRecording: String
+        val powerButtonSmsDispatched: String
+        val powerButtonSimulateDoubleTap: String
+
         // Guide Screen
         val guideHeaderTitle: String
         val guideHeaderSubtitle: String
@@ -253,6 +268,20 @@ object AppStrings {
         override val shakeMaximumLevelText = "Maximum Violent Shake"
         override val shakeHighLevelText = "High Shake"
 
+        override val powerButtonTitle = "⚡ Power Button Double-Tap Danger Guard"
+        override val powerButtonSubtitle = "Tap the power button 2 times quickly (even with screen locked or in pocket) to automatically make an emergency call, sound piercing buzzer, and record voice evidence."
+        override val powerButtonActiveStatus = "Active: Double-Tap Power Button Anytime for SOS"
+        override val powerButtonInactiveStatus = "Tap to Enable Power Button Danger Guard"
+        override val powerButtonInstruction = "When in danger, press phone's power button 2 times rapidly. Immediate action will automatically trigger without unlocking the phone."
+        override val powerButtonTestBtn = "⚡ Simulate Power Button Double-Tap"
+        override val powerButtonDialogTitle = "🚨 POWER BUTTON DANGER TRIGGERED!"
+        override val powerButtonDialogMessage = "Power button double-tap detected! Emergency actions active: Direct phone call dispatched, emergency siren buzzer sounding, and ambient voice evidence recording."
+        override val powerButtonAutoCalling = "Auto Calling Police / Helpline..."
+        override val powerButtonBuzzerActive = "Loud Buzzer Siren Sounding"
+        override val powerButtonVoiceRecording = "Voice Evidence Recording in Progress..."
+        override val powerButtonSmsDispatched = "Guardian SMS Dispatched with Evidence"
+        override val powerButtonSimulateDoubleTap = "Test Danger Trigger"
+
         override val guideHeaderTitle = "Women Tactical Safety Guide"
         override val guideHeaderSubtitle = "Essential moves, transit rules, and legal protections"
         override val tabSelfDefense = "Self-Defense Moves"
@@ -375,6 +404,20 @@ object AppStrings {
         override val shakeLevelLabel = "நேரலை அதிர்வு தீவிரம்"
         override val shakeMaximumLevelText = "அதிகபட்ச தீவிர அதிர்வு"
         override val shakeHighLevelText = "அதிக அதிர்வு"
+
+        override val powerButtonTitle = "⚡ பவர் பட்டன் இரட்டைத் தட்டு அவசரப் பாதுகாப்பு"
+        override val powerButtonSubtitle = "ஆபத்தில் இருக்கும்போது பவர் பட்டனை 2 முறை வேகமாகத் தட்டினால் (போன் லாக் செய்யப்பட்டிருந்தாலும்) தானாகவே அவசர அழைப்பு செல்லும், பலத்த அலாரம் ஒலிக்கும் மற்றும் குரல் பதிவு செய்யப்படும்."
+        override val powerButtonActiveStatus = "செயலில் உள்ளது: பவர் பட்டனை 2 முறை தட்டி SOS ஐப் பெறவும்"
+        override val powerButtonInactiveStatus = "பவர் பட்டன் அவசரப் பாதுகாப்பை இயக்க அழுத்தவும்"
+        override val powerButtonInstruction = "ஆபத்தில் இருக்கும்போது உங்கள் போனின் பவர் பட்டனை 2 முறை வேகமாக அழுத்தவும். போனை அன்லாக் செய்யாமலேயே உடனடி உதவி செயல்படும்."
+        override val powerButtonTestBtn = "⚡ பவர் பட்டன் இரட்டைத் தட்டைச் சோதிக்கவும்"
+        override val powerButtonDialogTitle = "🚨 பவர் பட்டன் அவசர உதவி தூண்டப்பட்டது!"
+        override val powerButtonDialogMessage = "பவர் பட்டன் இரட்டைத் தட்டு கண்டறியப்பட்டது! அவசர நடவடிக்கைகள் இயங்குகின்றன: மகளிர் காவல் அழைப்பு, அலாரம் ஒலி மற்றும் சுற்றுப்புறக் குரல் பதிவு செய்யப்படுகிறது."
+        override val powerButtonAutoCalling = "காவல்துறை / உதவி எண்ணுக்கு அழைக்கிறது..."
+        override val powerButtonBuzzerActive = "பலத்த அலாரம் சைரன் ஒலிக்கிறது"
+        override val powerButtonVoiceRecording = "குரல் ஆதாரங்கள் பதிவு செய்யப்படுகின்றன..."
+        override val powerButtonSmsDispatched = "பாதுகாவலர்களுக்கு SMS அனுப்பப்பட்டது"
+        override val powerButtonSimulateDoubleTap = "சோதனை செய்"
 
         override val guideHeaderTitle = "பெண்கள் பாதுகாப்பு மற்றும் உரிமை வழிகாட்டி"
         override val guideHeaderSubtitle = "முக்கிய தற்காப்பு முறைகள், பயண விதிகள் மற்றும் சட்ட உரிமைகள்"

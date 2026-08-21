@@ -36,15 +36,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ElectricBolt
+import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Hearing
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material.icons.filled.VolumeOff
@@ -128,6 +132,11 @@ fun SosHomeScreen(
     val shakeSensitivity by viewModel.shakeSensitivity.collectAsStateWithLifecycle()
     val showShakeAlertDialog by viewModel.showShakeAlertDialog.collectAsStateWithLifecycle()
 
+    val isPowerButtonGuardActive by viewModel.isPowerButtonGuardActive.collectAsStateWithLifecycle()
+    val powerButtonTapCount by viewModel.powerButtonTapCount.collectAsStateWithLifecycle()
+    val showPowerButtonDangerDialog by viewModel.showPowerButtonDangerDialog.collectAsStateWithLifecycle()
+    val powerButtonEmergencyContact by viewModel.powerButtonEmergencyContact.collectAsStateWithLifecycle()
+
     var sensorTabSelected by remember { mutableIntStateOf(0) }
 
     val requiredPermissions = arrayOf(
@@ -147,6 +156,97 @@ fun SosHomeScreen(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) {
         viewModel.triggerFullMasterSosAlert()
+    }
+
+    // Power Button Double-Tap Danger SOS Alert Dialog
+    if (showPowerButtonDangerDialog) {
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissPowerButtonDangerDialog() },
+            icon = {
+                Icon(
+                    Icons.Default.ElectricBolt,
+                    contentDescription = "Power Button Danger Alert",
+                    tint = CrimsonPrimary,
+                    modifier = Modifier.size(40.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = strings.powerButtonDialogTitle,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 17.sp,
+                    color = CrimsonPrimary
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        text = strings.powerButtonDialogMessage,
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Surface(
+                        color = CrimsonPrimary.copy(alpha = 0.1f),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Call, contentDescription = null, tint = CrimsonPrimary, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Automated Call: ${powerButtonEmergencyContact.ifBlank { "1091" }}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = CrimsonPrimary)
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.VolumeUp, contentDescription = null, tint = AmberWarning, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(strings.powerButtonBuzzerActive, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AmberWarning)
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Mic, contentDescription = null, tint = MagentaSecondary, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(strings.powerButtonVoiceRecording, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MagentaSecondary)
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Send, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(strings.powerButtonSmsDispatched, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SuccessGreen)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.dismissPowerButtonDangerDialog()
+                        viewModel.triggerEmergencyCall(powerButtonEmergencyContact.ifBlank { "1091" })
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = CrimsonPrimary)
+                ) {
+                    Icon(Icons.Default.Call, contentDescription = "Call", modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(strings.call1091Btn, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (isSirenActive) {
+                        Button(
+                            onClick = { viewModel.toggleSiren() },
+                            colors = ButtonDefaults.buttonColors(containerColor = AmberWarning)
+                        ) {
+                            Text(strings.stopSirenAction.replace("\n", " "), fontSize = 11.sp)
+                        }
+                    }
+                    OutlinedButton(
+                        onClick = { viewModel.dismissPowerButtonDangerDialog() }
+                    ) {
+                        Text(strings.cancelBtn, fontSize = 11.sp)
+                    }
+                }
+            }
+        )
     }
 
     // Violent Shake / Motion Emergency Alert Dialog
@@ -339,8 +439,8 @@ fun SosHomeScreen(
 
         // Interactive 24/7 Smart Shield Status Bar
         item {
-            val allActive = isScreamListening && isShakeListening
-            val anyActive = isScreamListening || isShakeListening
+            val allActive = isScreamListening && isShakeListening && isPowerButtonGuardActive
+            val anyActive = isScreamListening || isShakeListening || isPowerButtonGuardActive
             val shieldColor by animateColorAsState(
                 targetValue = if (allActive) SuccessGreen else if (anyActive) AmberWarning else CrimsonPrimary,
                 label = "shield_status_color"
@@ -385,7 +485,7 @@ fun SosHomeScreen(
                                 color = shieldColor
                             )
                             Text(
-                                text = if (currentLanguage == AppLanguage.TAMIL) "குரல் அலறல் & அதிர்வு உணரிகளால் கண்காணிக்கப்படுகிறது" else "Monitoring Voice Distress & Violent Motion",
+                                text = if (currentLanguage == AppLanguage.TAMIL) "குரல், அதிர்வு & பவர் பட்டன் (2x) கண்காணிக்கப்படுகிறது" else "Monitoring Voice, Shake & Power Button 2x",
                                 fontSize = 10.sp,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                             )
@@ -398,6 +498,7 @@ fun SosHomeScreen(
                             if (allActive) {
                                 if (isScreamListening) viewModel.toggleScreamDetection()
                                 if (isShakeListening) viewModel.toggleShakeDetection()
+                                if (isPowerButtonGuardActive) viewModel.togglePowerButtonGuard()
                             } else {
                                 if (!isScreamListening && isPermissionGranted(Manifest.permission.RECORD_AUDIO)) {
                                     viewModel.toggleScreamDetection()
@@ -406,6 +507,9 @@ fun SosHomeScreen(
                                 }
                                 if (!isShakeListening) {
                                     viewModel.toggleShakeDetection()
+                                }
+                                if (!isPowerButtonGuardActive) {
+                                    viewModel.togglePowerButtonGuard()
                                 }
                             }
                         },
@@ -451,6 +555,125 @@ fun SosHomeScreen(
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
+            }
+        }
+
+        // Power Button Double-Tap Danger Fast-Trigger Card
+        item {
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isPowerButtonGuardActive) CrimsonPrimary.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(
+                        1.5.dp,
+                        if (isPowerButtonGuardActive) CrimsonPrimary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant,
+                        RoundedCornerShape(16.dp)
+                    )
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            Box(
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isPowerButtonGuardActive) CrimsonPrimary else MaterialTheme.colorScheme.outline),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.PowerSettingsNew,
+                                    contentDescription = "Power Button Danger",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = if (currentLanguage == AppLanguage.TAMIL) "⚡ பவர் பட்டன் 2x அவசர உதவி" else "⚡ Power Button Double-Tap SOS",
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 13.sp,
+                                    color = if (isPowerButtonGuardActive) CrimsonPrimary else MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = if (isPowerButtonGuardActive) {
+                                        if (currentLanguage == AppLanguage.TAMIL) "2 முறை தட்டினால் தானாக அழைப்பு + அலாரம் + குரல் பதிவு" else "Tap 2x for Auto Call + Buzzer + Voice Record"
+                                    } else {
+                                        if (currentLanguage == AppLanguage.TAMIL) "பவர் பட்டன் பாதுகாப்பு முடக்கப்பட்டுள்ளது" else "Power Button Guard Paused"
+                                    },
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                )
+                            }
+                        }
+
+                        Button(
+                            onClick = { viewModel.togglePowerButtonGuard() },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isPowerButtonGuardActive) CrimsonPrimary else MaterialTheme.colorScheme.primary
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = if (isPowerButtonGuardActive) "ON" else "OFF",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    if (isPowerButtonGuardActive) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "🔴 Live Taps: ",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = CrimsonPrimary
+                                )
+                                Text(
+                                    text = "$powerButtonTapCount / 2",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = if (powerButtonTapCount > 0) CrimsonPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
+                            }
+
+                            Surface(
+                                onClick = { viewModel.testPowerButtonDangerTrigger() },
+                                shape = RoundedCornerShape(6.dp),
+                                color = CrimsonPrimary.copy(alpha = 0.15f),
+                                modifier = Modifier.padding(start = 4.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Icon(Icons.Default.FlashOn, contentDescription = null, tint = CrimsonPrimary, modifier = Modifier.size(12.dp))
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text(
+                                        text = if (currentLanguage == AppLanguage.TAMIL) "சோதனை செய்" else "Simulate 2x Tap",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = CrimsonPrimary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -661,11 +884,26 @@ fun SosHomeScreen(
                             text = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Default.Vibration, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = if (currentLanguage == AppLanguage.TAMIL) "கடுமையான அதிர்வு" else "Violent Shake",
+                                        text = if (currentLanguage == AppLanguage.TAMIL) "அதிர்வு" else "Shake",
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            }
+                        )
+                        Tab(
+                            selected = sensorTabSelected == 2,
+                            onClick = { sensorTabSelected = 2 },
+                            text = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.ElectricBolt, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = if (currentLanguage == AppLanguage.TAMIL) "பவர் பட்டன் 2x" else "Power 2x",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp
                                     )
                                 }
                             }
@@ -869,6 +1107,122 @@ fun SosHomeScreen(
                                                 else if (progress > 0.4f) AmberWarning
                                                 else SuccessGreen
                                             )
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Tab 2: Power Button Double-Tap Danger Guard
+                    if (sensorTabSelected == 2) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = strings.powerButtonTitle,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp
+                                    )
+                                    Text(
+                                        text = if (isPowerButtonGuardActive) strings.powerButtonActiveStatus else strings.powerButtonInactiveStatus,
+                                        fontSize = 11.sp,
+                                        color = if (isPowerButtonGuardActive) SuccessGreen else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                        fontWeight = if (isPowerButtonGuardActive) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                }
+
+                                Button(
+                                    onClick = { viewModel.togglePowerButtonGuard() },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (isPowerButtonGuardActive) CrimsonPrimary else MaterialTheme.colorScheme.primary
+                                    ),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Text(
+                                        text = if (isPowerButtonGuardActive) "Active" else "Enable",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Explanatory info box
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(10.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = strings.powerButtonSubtitle,
+                                        fontSize = 11.sp,
+                                        lineHeight = 16.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+
+                                    // Sequence bullets
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Call, contentDescription = null, tint = CrimsonPrimary, modifier = Modifier.size(14.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("1. Auto Dials Women Helpline (1091) or Primary Guardian", fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                    }
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.VolumeUp, contentDescription = null, tint = AmberWarning, modifier = Modifier.size(14.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("2. Blasts Loud Piercing Alarm Buzzer / Siren", fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                    }
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Mic, contentDescription = null, tint = MagentaSecondary, modifier = Modifier.size(14.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("3. Records Voice Evidence & Dispatches Guardian SMS", fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Live Tap Counter & Test Simulation Button
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Default.TouchApp,
+                                        contentDescription = null,
+                                        tint = if (powerButtonTapCount > 0) CrimsonPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Taps: $powerButtonTapCount / 2",
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 12.sp,
+                                        color = if (powerButtonTapCount > 0) CrimsonPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                    )
+                                }
+
+                                OutlinedButton(
+                                    onClick = { viewModel.testPowerButtonDangerTrigger() },
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = CrimsonPrimary)
+                                ) {
+                                    Icon(Icons.Default.FlashOn, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = strings.powerButtonSimulateDoubleTap,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
                                     )
                                 }
                             }

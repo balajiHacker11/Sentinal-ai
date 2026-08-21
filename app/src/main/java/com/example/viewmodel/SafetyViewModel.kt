@@ -22,6 +22,8 @@ import com.example.data.model.PoliceStation
 import com.example.data.model.PoliceStationProvider
 import com.example.service.AudioRecorder
 import com.example.service.CameraCaptureManager
+import com.example.service.PowerButtonEmergencyDetector
+import com.example.service.PowerButtonSosService
 import com.example.service.ScreamDetector
 import com.example.service.ShakeMotionDetector
 import com.example.service.ShakeSensitivity
@@ -84,10 +86,21 @@ class SafetyViewModel(application: Application) : AndroidViewModel(application) 
     val cameraCaptureManager = CameraCaptureManager(application)
     val speechToTextManager = SpeechToTextManager(application)
     val textToSpeechManager = TextToSpeechManager(application)
+    val powerButtonDetector = PowerButtonEmergencyDetector(application)
 
     // Speech & Voice State
     val isVoiceListening: StateFlow<Boolean> = speechToTextManager.isListening
     val isSpeakingTts: StateFlow<Boolean> = textToSpeechManager.isSpeaking
+
+    // Power Button Double-Tap Danger State
+    val isPowerButtonGuardActive: StateFlow<Boolean> = powerButtonDetector.isListening
+    val powerButtonTapCount: StateFlow<Int> = powerButtonDetector.currentTapCount
+
+    private val _showPowerButtonDangerDialog = MutableStateFlow(false)
+    val showPowerButtonDangerDialog: StateFlow<Boolean> = _showPowerButtonDangerDialog.asStateFlow()
+
+    private val _powerButtonEmergencyContact = MutableStateFlow("1091")
+    val powerButtonEmergencyContact: StateFlow<String> = _powerButtonEmergencyContact.asStateFlow()
 
     // Parameterized Threat Analysis State
     private val _parameterizedResult = MutableStateFlow<ParameterizedAnalysisResult?>(null)
@@ -127,6 +140,16 @@ class SafetyViewModel(application: Application) : AndroidViewModel(application) 
         shakeMotionDetector.setShakeListener {
             onShakeEmergencyDetected()
         }
+
+        powerButtonDetector.setDangerListener {
+            onPowerButtonDangerDetected()
+        }
+        powerButtonDetector.startListening()
+
+        // Auto start background guard service
+        try {
+            PowerButtonSosService.start(application)
+        } catch (_: Exception) {}
     }
 
     // Siren state
@@ -634,12 +657,76 @@ class SafetyViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    // --- POWER BUTTON DOUBLE-TAP DANGER GUARD ACTIONS ---
+
+    fun togglePowerButtonGuard() {
+        if (powerButtonDetector.isListening.value) {
+            powerButtonDetector.stopListening()
+            PowerButtonSosService.stop(getApplication())
+            showNotice("Power Button Danger Guard Paused")
+        } else {
+            powerButtonDetector.startListening()
+            PowerButtonSosService.start(getApplication())
+            showNotice("⚡ Power Button Double-Tap Danger Guard Active!")
+        }
+    }
+
+    fun testPowerButtonDangerTrigger() {
+        showNotice("⚡ Simulating Power Button Double-Tap...")
+        powerButtonDetector.simulateDoubleTap()
+    }
+
+    fun setPowerButtonEmergencyContact(phone: String) {
+        if (phone.isNotBlank()) {
+            _powerButtonEmergencyContact.value = phone.trim()
+            showNotice("Emergency contact set to $phone")
+        }
+    }
+
+    fun onPowerButtonDangerDetected() {
+        // 1. Automatically initiate direct call to 1091 / selected emergency contact
+        val contactToCall = _powerButtonEmergencyContact.value.ifBlank { "1091" }
+        sosManager.triggerDirectCall(contactToCall)
+
+        // 2. Automatically blast loud police buzzer / siren alarm
+        if (!_isSirenActive.value) {
+            sirenPlayer.startSiren()
+            _isSirenActive.value = true
+        }
+
+        // 3. Automatically start continuous audio evidence voice recording
+        if (!_isRecordingAudio.value) {
+            startAudioEvidenceRecording()
+        }
+
+        // 4. Automatically dispatch offline emergency SMS with evidence to guardians
+        viewModelScope.launch {
+            val guardians = guardiansList.value
+            val latestPhoto = incidentEvidencesList.value.firstOrNull { it.mediaType == "PHOTO" }?.title
+            val latestAudio = audioRecordingsList.value.firstOrNull()?.title
+            val smsResult = sosManager.sendOfflineEvidenceSmsToGuardians(
+                guardians,
+                latestPhoto,
+                latestAudio
+            )
+            showNotice("🚨 POWER BUTTON DANGER DETECTED!\n• Direct Call to $contactToCall Dispatched\n• Loud Buzzer Siren Blasting\n• Audio Evidence Recording Active\n• $smsResult")
+        }
+
+        // 5. Open high-priority danger dialog
+        _showPowerButtonDangerDialog.value = true
+    }
+
+    fun dismissPowerButtonDangerDialog() {
+        _showPowerButtonDangerDialog.value = false
+    }
+
     override fun onCleared() {
         super.onCleared()
         sirenPlayer.stopSiren()
         audioRecorder.stopPlayback()
         screamDetector.stopListening()
         shakeMotionDetector.stopListening()
+        powerButtonDetector.stopListening()
         speechToTextManager.stopListening()
         textToSpeechManager.shutdown()
         if (_isRecordingAudio.value) {
